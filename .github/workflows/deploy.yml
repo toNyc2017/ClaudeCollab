@@ -1,0 +1,41 @@
+name: Deploy Hello World App
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.11'
+    
+    - name: Install Python dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '20'
+        
+    - name: Install Node.js dependencies
+      run: |
+        cd frontend
+        npm install
+        
+    - name: Build React app
+      run: |
+        cd frontend
+        npm run build
+        
+    # Add deployment steps here when ready to deploy
+    # For now, we'll just verify the build works
