@@ -1,0 +1,43 @@
+name: Build and Push Docker Image to ECR
+
+on:
+  push:
+    branches:
+      - main # This triggers the workflow on push to the main branch
+      - master # Also trigger on master branch if that's your default
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the repository code
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Step 2: Set up AWS credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+          aws-region: us-east-1
+
+      # Step 3: Log in to Amazon ECR
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        run: |
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 463470965515.dkr.ecr.us-east-1.amazonaws.com
+      
+      # Step 4: Define IMAGE_TAG
+      - name: Define IMAGE_TAG
+        run: echo "IMAGE_TAG=claude-collab-$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
+      
+      # Step 5: Build Docker image
+      - name: Build Docker image
+        run: |
+          docker buildx build --platform linux/amd64 --no-cache -t 463470965515.dkr.ecr.us-east-1.amazonaws.com/yorkville/claude:${{ env.IMAGE_TAG }} -f Dockerfile . --load
+      
+      # Step 6: Push Docker image to ECR
+      - name: Push Docker image to ECR
+        run: docker push 463470965515.dkr.ecr.us-east-1.amazonaws.com/yorkville/claude:${{ env.IMAGE_TAG }}
