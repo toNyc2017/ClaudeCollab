@@ -17,14 +17,13 @@ COPY backend/ .
 # Final stage
 FROM python:3.9-slim
 WORKDIR /app
-
 # Copy built frontend
 COPY --from=frontend-build /app/frontend/build /app/frontend/build
-
 # Copy backend
 COPY --from=backend-build /app/backend /app/backend
-
 WORKDIR /app/backend
+# Install production dependencies
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 8000
-
 CMD ["python", "app.py"]
