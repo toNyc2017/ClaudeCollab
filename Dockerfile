@@ -23,11 +23,12 @@ COPY --from=frontend-build /app/frontend/build /app/frontend/build
 COPY --from=backend-build /app/backend /app/backend
 WORKDIR /app/backend
 EXPOSE 8000                                              
-CMD ["gunicorn", 
-     "--bind", "0.0.0.0:8000", 
-     "--workers", "2", 
-     "--timeout", "60", 
-     "--log-level", "info", 
-     "--access-logfile", "-", 
-     "--error-logfile", "-", 
-     "app:app"]  
+# CMD ["gunicorn", 
+#      "--bind", "0.0.0.0:8000", 
+#      "--workers", "2", 
+#      "--timeout", "60", 
+#      "--log-level", "info", 
+#      "--access-logfile", "-", 
+#      "--error-logfile", "-", 
+#      "app:app"]  
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "app:app"]
