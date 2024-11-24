@@ -22,8 +22,5 @@ COPY --from=frontend-build /app/frontend/build /app/frontend/build
 # Copy backend
 COPY --from=backend-build /app/backend /app/backend
 WORKDIR /app/backend
-# Install production dependencies
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-EXPOSE 8000
-CMD ["python", "app.py"]
+EXPOSE 8000                                              
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "app:app"]  
