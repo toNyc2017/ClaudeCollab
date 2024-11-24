@@ -64,7 +64,7 @@ jobs:
           --protocol tcp \
           --port 8000 \
           --cidr 0.0.0.0/0
-
+    
     - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
       with:
@@ -73,3 +73,11 @@ jobs:
         cluster: yorkville-first
         wait-for-service-stability: true
         wait-for-minutes: 10  # Added longer wait time
+        network-configuration: |
+          {
+            "awsvpcConfiguration": {
+              "subnets": ["subnet-06e3780a7902f1140", "subnet-03b4dbef2ed8579b6"],
+              "securityGroups": ["sg-0bfc76198b7f6df20"],
+              "assignPublicIp": "ENABLED"
+            }
+          }
