@@ -15,12 +15,13 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__, static_folder='../frontend/build', static_url_path='')
 CORS(app)
 
-# Serve React App - set up route for the root URL
+# Serve React App at root URL
 @app.route('/')
 def serve():
+    logger.info("Serving React frontend")
     return send_from_directory(app.static_folder, 'index.html')
 
-# API Routes - prefix them with /api
+# Move your existing endpoint to /api/hello
 @app.route("/api/hello")
 def hello_world():
     logger.info(f"Hello world endpoint called from IP: {request.remote_addr}")
@@ -37,12 +38,17 @@ def health():
         "timestamp": datetime.datetime.utcnow().isoformat()
     })
 
-# Catch all route to return to React Router
-@app.route('/', defaults={'path': ''})
+# Serve static files from the React app
 @app.route('/<path:path>')
-def catch_all(path):
-    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+def serve_static(path):
+    if os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
-    return send_from_directory(app.static_folder, 'index.html')
+    else:
+        return send_from_directory(app.static_folder, 'index.html')
 
-# Rest of your error handlers and middleware remain the same...
+# Keep your existing error handlers and middleware...
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    logger.info(f"Starting application on port {port}")
+    app.run(host="0.0.0.0", port=port)
