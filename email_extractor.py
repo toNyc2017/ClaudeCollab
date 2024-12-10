@@ -86,7 +86,13 @@ class EmailExtractor:
                 if auth_code_element:
                     print("\n*** 2FA Required ***")
                     print("Please enter the authentication code manually")
-                    input("Press Enter after entering the code...")
+                    auth_code = input("Enter the 2FA code: ")
+                    # Find the code input field and enter the code
+                    code_input = page.wait_for_selector("input[type='tel']", timeout=10000)
+                    if code_input:
+                        code_input.fill(auth_code)
+                        self.random_delay(1)
+                        page.keyboard.press("Enter")
             except:
                 self.debug_print("No 2FA prompt detected")
 
@@ -101,33 +107,15 @@ class EmailExtractor:
             self.save_debug_screenshot(page, "login_error")
             return False
 
-    def extract_email_content_with_keyboard(self, page):
-        """Extract email content using keyboard shortcuts"""
+    def extract_email_content(self, page):
+        """Extract email content directly from the page"""
         try:
             # Wait for content to be visible
             print("Waiting for email content to load...")
             page.wait_for_selector('div[role="document"]', timeout=5000)
             self.random_delay(2)
 
-            # Press Ctrl+A to select all
-            print("Selecting all content...")
-            page.keyboard.press("Control+a")
-            self.random_delay(1)
-
-            # Press Ctrl+C to copy
-            print("Copying content...")
-            page.keyboard.press("Control+c")
-            self.random_delay(1)
-
-            # Get clipboard content
-            try:
-                content = pyperclip.paste()
-                if content:
-                    return content
-            except Exception as e:
-                print(f"Error getting clipboard content: {e}")
-
-            # Fallback: try to get content directly
+            # Get content directly from the page
             content = page.evaluate('''() => {
                 const element = document.querySelector('div[role="document"]');
                 return element ? element.innerText : '';
@@ -215,8 +203,8 @@ class EmailExtractor:
                     item.click()
                     self.random_delay(2)
                     
-                    # Extract content using keyboard shortcuts
-                    content = self.extract_email_content_with_keyboard(page)
+                    # Extract content directly from the page
+                    content = self.extract_email_content(page)
                     if content:
                         print(f"Extracted {len(content)} characters")
                         
@@ -274,7 +262,8 @@ def main():
     extractor = EmailExtractor(email, password)
     
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        # Launch browser in headless mode with chromium
+        browser = p.chromium.launch(headless=True)
         context = browser.new_context(viewport={'width': 1280, 'height': 800})
         page = context.new_page()
         
