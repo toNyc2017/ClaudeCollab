@@ -24,16 +24,12 @@ class EmailExtractor:
         self.password = password
         self.debug_mode = True
         self.extracted_content = []
-        self.base_delay = 3  # Base delay between actions in seconds
+        self.base_delay = 3
 
     def random_delay(self, min_delay=None, max_extra=2):
         if min_delay is None:
             min_delay = self.base_delay
         time.sleep(min_delay + random.uniform(0, max_extra))
-
-    def debug_print(self, message):
-        if self.debug_mode:
-            logging.debug(message)
 
     def save_debug_screenshot(self, page, name):
         if self.debug_mode:
@@ -44,14 +40,91 @@ class EmailExtractor:
             except Exception as e:
                 logging.error(f"Failed to save screenshot: {e}")
 
+    def check_page_state(self, page, stage):
+        """Log detailed information about the current page state"""
+        try:
+            # Get page title
+            title = page.title()
+            logging.debug(f"Stage: {stage} - Title: {title}")
+            
+            # Log URL
+            url = page.url
+            logging.debug(f"URL: {url}")
+            
+            # Log visible text
+            text = page.inner_text('body')
+            logging.debug(f"Visible text (first 200 chars): {text[:200]}")
+            
+            # Take screenshot
+            self.save_debug_screenshot(page, f"state_{stage}")
+            
+            # Check for common error messages
+            error_messages = [
+                "something went wrong",
+                "error",
+                "invalid",
+                "incorrect",
+                "failed"
+            ]
+            
+            for msg in error_messages:
+                if msg.lower() in text.lower():
+                    logging.error(f"Found error message containing '{msg}'")
+            
+            return {
+                'title': title,
+                'url': url,
+                'text': text
+            }
+            
+        except Exception as e:
+            logging.error(f"Error checking page state: {e}")
+            return None
+
+    def handle_additional_prompts(self, page):
+        """Handle various authentication prompts and popups"""
+        try:
+            # List of common buttons/links to check for
+            common_elements = [
+                "text=Stay signed in",
+                "text=Yes",
+                "text=Next",
+                "text=Continue",
+                "text=I agree",
+                "text=Accept",
+                "text=Skip",
+                "text=Not now",
+                'button:has-text("Next")',
+                'button:has-text("Continue")',
+                'button:has-text("Skip")',
+                'button:has-text("Yes")'
+            ]
+            
+            for selector in common_elements:
+                try:
+                    element = page.wait_for_selector(selector, timeout=2000)
+                    if element and element.is_visible():
+                        logging.debug(f"Found and clicking: {selector}")
+                        element.click()
+                        self.random_delay(2)
+                        return True
+                except:
+                    continue
+            
+            return False
+            
+        except Exception as e:
+            logging.error(f"Error handling additional prompts: {e}")
+            return False
+
     def wait_for_load(self, page, timeout=30):
-        logging.info("Waiting for page to load...")
+        logging.info(f"Waiting for page to load (timeout: {timeout}s)...")
         deadline = time.time() + timeout
         while time.time() < deadline:
             try:
                 page.wait_for_load_state("networkidle", timeout=5000)
                 page.wait_for_load_state("domcontentloaded", timeout=5000)
-                time.sleep(1)
+                self.check_page_state(page, "load_complete")
                 return True
             except Exception as e:
                 logging.debug(f"Still loading... ({str(e)})")
@@ -62,95 +135,80 @@ class EmailExtractor:
         try:
             logging.info("\nLogging in to Outlook...")
             page.goto("https://outlook.office365.com/")
-            logging.debug("Page loaded, waiting for elements...")
+            self.wait_for_load(page)
             
-            # Take screenshot of initial page
-            self.save_debug_screenshot(page, "initial_page")
+            # Initial page state
+            self.check_page_state(page, "initial")
             
-            # Wait for and log the page title
-            logging.debug(f"Page title: {page.title()}")
+            # Handle sign in
+            sign_in_button = page.query_selector("text=Sign in")
+            if sign_in_button and sign_in_button.is_visible():
+                logging.debug("Found sign in button")
+                sign_in_button.click()
+                self.random_delay()
             
-            # Get page content for debugging
-            content = page.content()
-            logging.debug(f"Page content length: {len(content)}")
+            # Check state after sign in click
+            self.check_page_state(page, "after_signin")
             
-            # Handle sign in button
-            try:
-                sign_in_button = page.wait_for_selector("text=Sign in", timeout=5000)
-                if sign_in_button and sign_in_button.is_visible():
-                    logging.debug("Found sign in button, clicking...")
-                    sign_in_button.click()
-                    self.random_delay()
-            except TimeoutError:
-                logging.debug("No sign in button found, might be already on login page")
+            # Enter email
+            logging.debug("Looking for email input")
+            email_input = page.wait_for_selector("input[type='email']", timeout=10000)
+            if email_input:
+                logging.debug("Found email input")
+                email_input.fill(self.email)
+                self.random_delay(1)
+                page.keyboard.press("Enter")
+                logging.debug("Email submitted")
             
-            # Take screenshot after potential sign in click
-            self.save_debug_screenshot(page, "after_signin_click")
+            # Check state after email
+            self.check_page_state(page, "after_email")
             
-            # Handle email input
-            try:
-                logging.debug("Looking for email input...")
-                email_input = page.wait_for_selector("input[type='email']", timeout=10000)
-                if email_input:
-                    logging.debug("Found email input, filling...")
-                    email_input.fill(self.email)
-                    self.random_delay(1)
-                    page.keyboard.press("Enter")
-                    logging.debug("Email entered and submitted")
-            except TimeoutError:
-                logging.error("Could not find email input field")
-                return False
+            # Enter password
+            logging.debug("Looking for password input")
+            password_input = page.wait_for_selector("input[type='password']", timeout=10000)
+            if password_input:
+                logging.debug("Found password input")
+                password_input.fill(self.password)
+                self.random_delay(1)
+                page.keyboard.press("Enter")
+                logging.debug("Password submitted")
             
-            # Take screenshot after email entry
-            self.save_debug_screenshot(page, "after_email")
+            # Check state after password
+            self.check_page_state(page, "after_password")
             
-            # Handle password input
-            try:
-                logging.debug("Looking for password input...")
-                password_input = page.wait_for_selector("input[type='password']", timeout=10000)
-                if password_input:
-                    logging.debug("Found password input, filling...")
-                    password_input.fill(self.password)
-                    self.random_delay(1)
-                    page.keyboard.press("Enter")
-                    logging.debug("Password entered and submitted")
-            except TimeoutError:
-                logging.error("Could not find password input field")
-                return False
+            # Handle any additional prompts
+            max_prompt_checks = 5
+            prompt_count = 0
             
-            # Take screenshot after password entry
-            self.save_debug_screenshot(page, "after_password")
+            while prompt_count < max_prompt_checks:
+                logging.debug(f"Checking for additional prompts (attempt {prompt_count + 1}/{max_prompt_checks})")
+                
+                # Check current page state
+                state = self.check_page_state(page, f"prompt_check_{prompt_count}")
+                
+                # Try to handle any prompts
+                if self.handle_additional_prompts(page):
+                    logging.debug("Handled a prompt, waiting before next check")
+                    self.random_delay(2)
+                else:
+                    logging.debug("No prompts found in this check")
+                
+                # Check if we've reached the inbox
+                try:
+                    inbox = page.wait_for_selector('div[role="list"]', timeout=5000)
+                    if inbox:
+                        logging.info("Successfully reached inbox!")
+                        return True
+                except:
+                    pass
+                
+                prompt_count += 1
             
-            # Handle 2FA if needed
-            try:
-                auth_code_element = page.wait_for_selector("text=Enter code", timeout=10000)
-                if auth_code_element:
-                    logging.info("\n*** 2FA Required ***")
-                    auth_code = input("Enter the 2FA code: ")
-                    code_input = page.wait_for_selector("input[type='tel']", timeout=10000)
-                    if code_input:
-                        code_input.fill(auth_code)
-                        self.random_delay(1)
-                        page.keyboard.press("Enter")
-                        logging.debug("2FA code entered")
-            except TimeoutError:
-                logging.debug("No 2FA prompt detected")
-            
-            # Wait for inbox
-            logging.info("Waiting for Outlook to load...")
-            try:
-                # Wait for something that indicates we're in the inbox
-                page.wait_for_selector('div[role="list"]', timeout=20000)
-                logging.info("Successfully logged in!")
-                self.save_debug_screenshot(page, "inbox_loaded")
-                return True
-            except TimeoutError:
-                logging.error("Could not detect inbox after login")
-                self.save_debug_screenshot(page, "login_failed")
-                return False
+            logging.error("Failed to reach inbox after handling prompts")
+            return False
 
         except Exception as e:
-            logging.error(f"Login error: {str(e)}")
+            logging.error(f"Login error: {e}")
             self.save_debug_screenshot(page, "login_error")
             return False
 
@@ -295,7 +353,10 @@ def main():
     extractor = EmailExtractor(email, password)
     
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(
+            headless=True,
+            args=['--disable-dev-shm-usage']
+        )
         context = browser.new_context(
             viewport={'width': 1280, 'height': 800},
             user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
