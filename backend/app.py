@@ -26,7 +26,7 @@ def serve():
 def hello_world():
     logger.info(f"Hello world endpoint called from IP: {request.remote_addr}")
     return jsonify({
-        "message": "Hello World from Python Backend!",
+        "message": "THIS IS THE TRIAL FOR DECEMBER 14, 2024",
         "environment": os.getenv('AWS_ENVIRONMENT', 'development')
     })
 

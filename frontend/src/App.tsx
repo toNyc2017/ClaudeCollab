@@ -5,7 +5,7 @@ function App() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    setMessage("Hello from React! This is a static message since we're running on GitHub Pages.");
+    setMessage("THIS IS THE TRIAL FOR DECEMBER 14, 2024");
     
     // Commented out the API call since GitHub Pages only serves static content
     /*
